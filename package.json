@@ -1,0 +1,18 @@
+{
+  "name": "jwt_token_api",
+  "Type": "module",
+  "version": "1.0.0",
+  "description": "Rest api to create and delete jwt tokens for auth",
+  "main": "src/App.ts",
+  "scripts": {
+    "start": "tsnd --respawn src/App.ts"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.17",
+    "express": "^4.18.2",
+    "mongoose": "^7.3.1",
+    "ts-node-dev": "^2.0.0",
+    "typegoose": "^5.9.1",
+    "typescript": "^5.1.6"
+  }
+}

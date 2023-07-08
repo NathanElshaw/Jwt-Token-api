@@ -1,7 +1,7 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import jwt_Provider from "../Provider/Jwt.Provider";
 import session_Service from "../Service/Jwt.Service";
-import { default_Params } from "../../Default";
+import { default_Params } from "../../Default/Default";
 
 const session_Handler = {
   Create: async (req: Request, res: Response) => {
@@ -41,13 +41,38 @@ const session_Handler = {
         },
         default_Params.jwt_Private_Key, //keyName
         {
-          expiresIn: default_Params.jwt_Access_Token_TTL, // defined in default params i.e "15m" = 15 minutes
+          expiresIn: default_Params.jwt_Refresh_Token_TTL, // defined in default params i.e "15m" = 15 minutes
         }
       );
       return res
         .cookie("access_Token", access_Token, { httpOnly: true }) // Set-cookie for access token
         .cookie("refresh_token", refresh_token, { httpOnly: true }) // Set-cookie for refresh token
         .send();
+    } catch (e: any) {
+      return res.status(409).send(e.message);
+    }
+  },
+
+  Check_Refresh(req: Request, res: Response, next: NextFunction) {
+    try {
+      const cookie_Access_Token = req.cookies.access_Token;
+      const cookie_Refresh_Token = req.cookies.refresh_token;
+
+      if (cookie_Access_Token && cookie_Refresh_Token)
+        if (
+          jwt_Provider.refresh(
+            cookie_Access_Token, //Checks for existing access token
+            cookie_Refresh_Token, //Checks for existing refresh token
+            default_Params.jwt_Private_Key, //keyName
+            {
+              expiresIn: default_Params.jwt_Refresh_Token_TTL, // defined in default params i.e "15m" = 15 minutes
+            },
+            next //next function call
+          ) === typeof Object
+        )
+          console.log("yes");
+
+      next();
     } catch (e: any) {
       return res.status(409).send(e.message);
     }

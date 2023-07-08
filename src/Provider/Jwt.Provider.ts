@@ -1,5 +1,6 @@
-import jwt from "jsonwebtoken";
-import { default_Params } from "../../Default";
+import jwt, { decode, verify } from "jsonwebtoken";
+import { default_Params } from "../../Default/Default";
+import { NextFunction } from "express";
 
 const jwt_Provider = {
   sign: (
@@ -11,7 +12,7 @@ const jwt_Provider = {
     const signing_Key = Buffer.from(keyName, "base64").toString("ascii");
 
     //signs a jwt with data given in the object to be used as jwt and the key as the signing key
-    return jwt.sign(object, signing_Key, {
+    return jwt.sign({ payload: object }, signing_Key, {
       ...(options && options),
       algorithm: "RS256",
     });
@@ -30,6 +31,37 @@ const jwt_Provider = {
         expired: e.message === "jwt expired",
         decoded: null,
       }; //returns invalid (jwt expired or possibly modified)
+    }
+  },
+
+  refresh(
+    access_Token: string,
+    refresh_Token: string,
+    keyName: string,
+    refresh_Options: object,
+    next: NextFunction
+  ) {
+    const public_Key = Buffer.from(keyName, "base64").toString("ascii");
+    try {
+      const decoded = jwt.verify(access_Token, public_Key);
+      return {
+        decoded,
+      };
+    } catch (e: any) {
+      if (e.message === "jwt expired") {
+        try {
+          const refresh_Decoded = jwt.verify(refresh_Token, public_Key);
+          if (refresh_Decoded)
+            jwt.sign(refresh_Decoded, public_Key, {
+              ...refresh_Options,
+              algorithm: "RS256",
+            });
+        } catch (e: any) {
+          console.error(e.message);
+          return e.message;
+        }
+      }
+      return e.message;
     }
   },
 };

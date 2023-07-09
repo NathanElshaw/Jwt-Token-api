@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import jwt_Provider from "../Provider/Jwt.Provider";
 import session_Service from "../Service/Jwt.Service";
 import { default_Params } from "../../Default/Default";
+import { get } from "lodash";
 
 /*Session handler for api requests */
 const session_Handler = {
@@ -83,24 +84,22 @@ const session_Handler = {
     }
   },
 
-  Delete_Session: async (req: Request, res: Response) => {
+  Delete_Session: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const cookie_Access_Token = req.cookies.access_Token; //checks for exisitng access token
       const cookie_Refresh_Token = req.cookies.refresh_Token; //checks for existing refresh token
       //if there is a jwt in cookies will invalidate the session in the db then clear cookies on client
       if (cookie_Access_Token && cookie_Refresh_Token) {
-        await jwt_Provider.delete_session().then((response) => {
-          return res
-            .cookie("access_Token", "", {
-              httpOnly: true,
-              expires: new Date(0),
-            })
-            .cookie("refresh_Token", "", {
-              httpOnly: true,
-              expires: new Date(0),
-            })
-            .send("Deleted");
-        });
+        const jwt_Payload = jwt_Provider.verify(
+          cookie_Access_Token,
+          default_Params.jwt_Private_Key
+        );
+        console.log(jwt_Payload);
+        await session_Service.Delete_Session(
+          get(jwt_Payload.decoded, "payload"),
+          res
+        );
+        return res.send(await jwt_Provider.Delete_Session(res));
       } else {
         return res.send("Unable to preform action"); //if no jwt exists in cookies will return this
       }

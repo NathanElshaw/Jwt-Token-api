@@ -1,7 +1,8 @@
-import { NextFunction, Request, Response, response } from "express";
+import { NextFunction, Request, Response } from "express";
 import jwt_Provider from "../Provider/Jwt.Provider";
 import session_Service from "../Service/Jwt.Service";
 import { default_Params } from "../../Default/Default";
+
 /*Session handler for api requests */
 const session_Handler = {
   Create: async (req: Request, res: Response) => {
@@ -33,6 +34,7 @@ const session_Handler = {
           expiresIn: default_Params.jwt_Access_Token_TTL, // defined in default params i.e "15m" = 15 minutes
         }
       );
+
       //refresh token to use when access token expires to make a new one
       /*signs refresh token*/
       const refresh_token = jwt_Provider.sign(
@@ -60,28 +62,24 @@ const session_Handler = {
       const cookie_Refresh_Token = req.cookies.refresh_Token; //checks for existing refresh token
 
       if (cookie_Access_Token && cookie_Refresh_Token) {
-        const new_Tokens = jwt_Provider.refresh(
-          cookie_Access_Token, //Checks for existing access token
-          cookie_Refresh_Token, //Checks for existing refresh token
-          default_Params.jwt_Private_Key //keyName
-        );
-        if (new_Tokens.new_Access_Token && new_Tokens.new_Refresh_Token) {
-          return res
-            .cookie("access_Token", new_Tokens.new_Access_Token, {
-              httpOnly: true,
-            }) // Set-cookie for new access token
-            .cookie("refresh_Token", new_Tokens.new_Refresh_Token, {
-              httpOnly: true,
-            }) // Set-cookie for new refresh token
-            .send("New token Issued"); //on new jwt issuence returns cookies and response with this string
-        } else {
-          return res.send(`Jwt is valid`); //if the current jwt is valid returns valid
+        try {
+          return res.send(
+            jwt_Provider.refresh(
+              cookie_Access_Token, //Checks for existing access token
+              cookie_Refresh_Token, //Checks for existing refresh token
+              default_Params.jwt_Private_Key, //keyName,
+              res // use response to set cookies with-in fuction
+            )
+          ); //on new jwt issuence returns cookies and response with this string
+        } catch (e: any) {
+          console.error({ "Refresh Token Error:": e.message });
+          return res.send(e.message);
         }
       } else {
-        return next(); //if no tokens exist then creates new token
+        next();
       }
     } catch (e: any) {
-      return res.status(409).send(e.message);
+      return e.message;
     }
   },
 
@@ -104,7 +102,7 @@ const session_Handler = {
             .send("Deleted");
         });
       } else {
-        return res.send("Unable to preform action"); //if no jwt exists in cookie will return this
+        return res.send("Unable to preform action"); //if no jwt exists in cookies will return this
       }
     } catch (e: any) {
       console.error({ "Delete Session": e.message });

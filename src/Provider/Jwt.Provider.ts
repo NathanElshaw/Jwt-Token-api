@@ -1,9 +1,7 @@
-import jwt, { sign } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 import { get } from "lodash";
-import { NextFunction, Response } from "express";
-import session_Service from "../Service/Jwt.Service";
+import { Response } from "express";
 import { default_Params } from "../../Default/Default";
-import session_Handler from "../Controller/Jwt.Controller";
 
 const jwt_Provider = {
   sign: (
@@ -28,7 +26,7 @@ const jwt_Provider = {
       const decoded = jwt.verify(token, signing_Key);
       return { valid: true, expired: false, decoded }; //Returns valid jwt with user data
     } catch (e: any) {
-      console.error(e);
+      console.error({ "Verify jwt:": e.message });
       return {
         valid: false,
         expired: e.message === "jwt expired",
@@ -55,18 +53,18 @@ const jwt_Provider = {
           if (refresh_Decoded) {
             try {
               const new_Access_Token = jwt.sign(
-                { payload: get(refresh_Decoded, "payload") },
-                signing_Key,
+                { payload: get(refresh_Decoded, "payload") }, //user data
+                signing_Key, //signing key
                 {
-                  expiresIn: default_Params.jwt_Access_Token_TTL,
-                  algorithm: "RS256",
+                  expiresIn: default_Params.jwt_Access_Token_TTL, //Tokens expire time defined in default params i.e "15m" = 15 minutes
+                  algorithm: "RS256", //encoding algo
                 }
               );
               const new_Refresh_Token = jwt.sign(
-                { payload: get(refresh_Decoded, "payload") },
-                signing_Key,
+                { payload: get(refresh_Decoded, "payload") }, //user data
+                signing_Key, //signing key
                 {
-                  expiresIn: default_Params.jwt_Refresh_Token_TTL, // defined in default params i.e "15m" = 15 minutes
+                  expiresIn: default_Params.jwt_Refresh_Token_TTL, //Tokens expire time defined in default params i.e "15m" = 15 minutes
                   algorithm: "RS256",
                 }
               );
@@ -90,13 +88,16 @@ const jwt_Provider = {
                 .cookie("access_Token", "", {
                   httpOnly: true,
                   expires: new Date(0),
-                })
+                }) //set-cookies to expire instantly therefore "deleting" them
                 .cookie("refresh_Token", "", {
                   httpOnly: true,
                   expires: new Date(0),
-                })
+                }) //set-cookies to expire instantly therefore "deleting" them
                 .send("Please log-in again");
             } catch (e: any) {
+              console.error({
+                "Jwt Provider-Refresh-Delete-Expired:": e.message,
+              });
               return e.message;
             }
           }
@@ -106,11 +107,21 @@ const jwt_Provider = {
     }
   },
 
-  delete_session: async () => {
+  Delete_Session: async (res: Response) => {
     try {
-      //invalidate session in db then in client
+      res
+        .cookie("access_Token", "", {
+          httpOnly: true,
+          expires: new Date(0),
+        })
+        .cookie("refresh_Token", "", {
+          httpOnly: true,
+          expires: new Date(0),
+        });
+      return "Deleted";
     } catch (e: any) {
-      return e.message;
+      console.error({ "Jwt provider: ": e.message });
+      return res.status(409).send(e.message);
     }
   },
 };

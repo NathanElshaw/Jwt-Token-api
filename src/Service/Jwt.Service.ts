@@ -1,4 +1,6 @@
 import { Response } from "express";
+import jwt_Provider from "../Provider/Jwt.Provider";
+import { default_Params } from "../../Default/Default";
 
 const session_Service = {
   /*Creates a Mongodb Document to use to store session */
@@ -14,6 +16,15 @@ const session_Service = {
       return session; //return create as a json to be used in jwt
     } catch (e: any) {
       console.error({ "Session Create:": e.message });
+      return e.message;
+    }
+  },
+
+  Get_Session: async (access_Cookie: string) => {
+    try {
+      return jwt_Provider.verify(access_Cookie, default_Params.jwt_Private_Key);
+    } catch (e: any) {
+      console.error({ "Session-Service-Get-Session:": e.message });
       return e.message;
     }
   },

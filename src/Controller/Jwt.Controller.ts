@@ -69,7 +69,8 @@ const session_Handler = {
               cookie_Access_Token, //Checks for existing access token
               cookie_Refresh_Token, //Checks for existing refresh token
               default_Params.jwt_Private_Key, //keyName,
-              res // use response to set cookies with-in fuction
+              res, // use response to set cookies with-in fuction
+              next //next function
             )
           ); //on new jwt issuence returns cookies and response with this string
         } catch (e: any) {
@@ -77,10 +78,21 @@ const session_Handler = {
           return res.send(e.message);
         }
       } else {
-        next();
+        return next();
       }
     } catch (e: any) {
       return e.message;
+    }
+  },
+
+  Get_Session: async (req: Request, res: Response) => {
+    try {
+      return res.send(
+        await session_Service.Get_Session(req.cookies.access_Cookie)
+      );
+    } catch (e: any) {
+      console.error({ "Session-Handler-Get-Session:": e.message });
+      res.status(409).send(e.message);
     }
   },
 

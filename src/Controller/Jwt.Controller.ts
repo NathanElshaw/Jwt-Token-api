@@ -10,6 +10,11 @@ const session_Handler = {
     //Check to see if on login the user is a valid user
     const user = { _id: "user" }; // add a real async check here
 
+    const access_Cookie = req.cookies.access_Cookie;
+    const refresh_Token = req.cookies.refresh_Token;
+
+    if (access_Cookie && refresh_Token) return "Tokens already exist";
+
     //if the check returns null or undefined will reject request here
     if (!user) {
       return res.status(401).send("Invalid username or password");
@@ -64,15 +69,37 @@ const session_Handler = {
 
       if (cookie_Access_Token && cookie_Refresh_Token) {
         try {
-          return res.send(
-            jwt_Provider.refresh(
-              cookie_Access_Token, //Checks for existing access token
-              cookie_Refresh_Token, //Checks for existing refresh token
-              default_Params.jwt_Private_Key, //keyName,
-              res, // use response to set cookies with-in fuction
-              next //next function
-            )
-          ); //on new jwt issuence returns cookies and response with this string
+          const { decoded: decoded_Access_Token, valid: valid_Access_Token } =
+            jwt_Provider.verify(
+              cookie_Access_Token,
+              default_Params.jwt_Private_Key
+            );
+
+          if (!decoded_Access_Token) {
+            const {
+              decoded: decoded_Refresh_Token,
+              valid: valid_Refresh_Token,
+            } = jwt_Provider.verify(
+              cookie_Refresh_Token,
+              default_Params.jwt_Private_Key
+            );
+            if (!decoded_Refresh_Token) {
+              jwt_Provider.Delete_Session(res);
+              return res.send("Please Login Again");
+            }
+            try {
+              const reissue_Token = jwt_Provider.Reissue(
+                cookie_Access_Token,
+                cookie_Refresh_Token,
+                default_Params.jwt_Private_Key,
+                res
+              );
+              return "Reissued";
+            } catch (e: any) {
+              return res.status(409).send(e.message);
+            }
+          }
+          return res.send("Boner");
         } catch (e: any) {
           console.error({ "Refresh Token Error:": e.message });
           return res.send(e.message);

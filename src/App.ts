@@ -1,5 +1,6 @@
 import express from "express";
 import { default_Params } from "../Default/Default";
+import DeserializeUser from "./Middleware/DeserializeUser";
 import routes from "./Routes";
 import db_Connection from "./Provider/Db.Provider";
 import cors from "cors";
@@ -15,7 +16,7 @@ app.use(
   })
 );
 
-app.use(cookieParser(), express.json());
+app.use(cookieParser(), express.json(), DeserializeUser);
 
 app.listen(port, async () => {
   await db_Connection();

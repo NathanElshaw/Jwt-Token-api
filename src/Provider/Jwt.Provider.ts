@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 import { get } from "lodash";
-import { Response } from "express";
+import { NextFunction, Response } from "express";
 import { default_Params } from "../../Default/Default";
 
 const jwt_Provider = {
@@ -39,12 +39,13 @@ const jwt_Provider = {
     access_Token: string, //current access token
     refresh_Token: string, //current refresh token
     keyName: string, //key name for making signing key
-    res: Response
+    res: Response,
+    next: NextFunction
   ) => {
     const signing_Key = Buffer.from(keyName, "base64").toString("ascii"); //creates signing key with private or public key
     try {
       const access_Decoded = jwt.verify(access_Token, signing_Key); //decodes the current access token to check if its valid
-      return get(access_Decoded, "payload");
+      return next();
     } catch (e: any) {
       if (e.message === "jwt expired") {
         try {
@@ -75,7 +76,7 @@ const jwt_Provider = {
                 .cookie("refresh_Token", new_Refresh_Token, {
                   httpOnly: true,
                 }); // Set-cookie for new refresh token
-              return "New Jwt Issued";
+              return next();
             } catch (e: any) {
               console.error(e.message);
               return e.message;
@@ -84,7 +85,7 @@ const jwt_Provider = {
         } catch (e: any) {
           if (e.message === "jwt expired") {
             try {
-              return res
+              res
                 .cookie("access_Token", "", {
                   httpOnly: true,
                   expires: new Date(0),
@@ -92,8 +93,8 @@ const jwt_Provider = {
                 .cookie("refresh_Token", "", {
                   httpOnly: true,
                   expires: new Date(0),
-                }) //set-cookies to expire instantly therefore "deleting" them
-                .send("Please log-in again");
+                }); //set-cookies to expire instantly therefore "deleting" them
+              return res.send("Please log-in again");
             } catch (e: any) {
               console.error({
                 "Jwt Provider-Refresh-Delete-Expired:": e.message,
@@ -113,14 +114,14 @@ const jwt_Provider = {
         .cookie("access_Token", "", {
           httpOnly: true,
           expires: new Date(0),
-        })
+        }) //sets cookies to no data & expires instantly
         .cookie("refresh_Token", "", {
           httpOnly: true,
           expires: new Date(0),
-        });
+        }); //sets cookies to no data & expires instantly
       return "Deleted";
     } catch (e: any) {
-      console.error({ "Jwt provider: ": e.message });
+      console.error({ "Jwt provider-Delete-Session: ": e.message });
       return res.status(409).send(e.message);
     }
   },

@@ -73,29 +73,31 @@ const session_Handler = {
             jwt_Provider.verify(
               cookie_Access_Token,
               default_Params.jwt_Private_Key
-            );
+            ); //validates access token
 
           if (!decoded_Access_Token || valid_Access_Token === false) {
+            //if access token is invalid check refresh token
             const {
               decoded: decoded_Refresh_Token,
               valid: valid_Refresh_Token,
             } = jwt_Provider.verify(
               cookie_Refresh_Token,
               default_Params.jwt_Private_Key
-            );
+            ); //validate refresh token
             if (!decoded_Refresh_Token || valid_Refresh_Token === false) {
-              jwt_Provider.Delete_Session(res);
-              return res.send("Please Login Again");
+              //if refresh is invalid  delete seesion and request to relog
+              jwt_Provider.Delete_Session(res); //clear cookies
+              return res.send("Please Login Again"); //if both tokens are invalid  will request to relog-in
             }
             jwt_Provider.Reissue(
               cookie_Access_Token,
               cookie_Refresh_Token,
               default_Params.jwt_Private_Key,
               res
-            );
-            return res.send("Reissued");
+            ); //reissue tokens
+            return res.send("Reissued"); //if access is invalid but refresh is valid will reissue tokens
           }
-          next();
+          next(); //if tokens are good will return next function
         } catch (e: any) {
           console.error({ "Refresh Token Error:": e.message });
           return res.send(e.message);
@@ -119,7 +121,7 @@ const session_Handler = {
     }
   },
 
-  Delete_Session: async (req: Request, res: Response, next: NextFunction) => {
+  Delete_Session: async (req: Request, res: Response) => {
     try {
       const cookie_Access_Token = req.cookies.access_Token; //checks for exisitng access token
       const cookie_Refresh_Token = req.cookies.refresh_Token; //checks for existing refresh token

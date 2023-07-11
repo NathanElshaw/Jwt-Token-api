@@ -35,17 +35,16 @@ const jwt_Provider = {
     }
   },
 
-  refresh: (
+  Reissue: (
     access_Token: string, //current access token
     refresh_Token: string, //current refresh token
     keyName: string, //key name for making signing key
-    res: Response,
-    next: NextFunction
+    res: Response
   ) => {
     const signing_Key = Buffer.from(keyName, "base64").toString("ascii"); //creates signing key with private or public key
     try {
-      const access_Decoded = jwt.verify(access_Token, signing_Key); //decodes the current access token to check if its valid
-      return next();
+      jwt.verify(access_Token, signing_Key); //decodes the current access token to check if its valid
+      return "Good";
     } catch (e: any) {
       if (e.message === "jwt expired") {
         try {
@@ -76,7 +75,7 @@ const jwt_Provider = {
                 .cookie("refresh_Token", new_Refresh_Token, {
                   httpOnly: true,
                 }); // Set-cookie for new refresh token
-              return next();
+              return "New Token issue";
             } catch (e: any) {
               console.error(e.message);
               return e.message;

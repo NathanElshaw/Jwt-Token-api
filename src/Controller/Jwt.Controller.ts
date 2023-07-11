@@ -10,10 +10,10 @@ const session_Handler = {
     //Check to see if on login the user is a valid user
     const user = { _id: "user" }; // add a real async check here
 
-    const access_Cookie = req.cookies.access_Cookie;
+    const access_Cookie = req.cookies.access_Token;
     const refresh_Token = req.cookies.refresh_Token;
 
-    if (access_Cookie && refresh_Token) return "Tokens already exist";
+    if (access_Cookie && refresh_Token) return res.send("Tokens already exist");
 
     //if the check returns null or undefined will reject request here
     if (!user) {
@@ -75,7 +75,7 @@ const session_Handler = {
               default_Params.jwt_Private_Key
             );
 
-          if (!decoded_Access_Token) {
+          if (!decoded_Access_Token || valid_Access_Token === false) {
             const {
               decoded: decoded_Refresh_Token,
               valid: valid_Refresh_Token,
@@ -83,23 +83,19 @@ const session_Handler = {
               cookie_Refresh_Token,
               default_Params.jwt_Private_Key
             );
-            if (!decoded_Refresh_Token) {
+            if (!decoded_Refresh_Token || valid_Refresh_Token === false) {
               jwt_Provider.Delete_Session(res);
               return res.send("Please Login Again");
             }
-            try {
-              const reissue_Token = jwt_Provider.Reissue(
-                cookie_Access_Token,
-                cookie_Refresh_Token,
-                default_Params.jwt_Private_Key,
-                res
-              );
-              return "Reissued";
-            } catch (e: any) {
-              return res.status(409).send(e.message);
-            }
+            jwt_Provider.Reissue(
+              cookie_Access_Token,
+              cookie_Refresh_Token,
+              default_Params.jwt_Private_Key,
+              res
+            );
+            return res.send("Reissued");
           }
-          return res.send("Boner");
+          next();
         } catch (e: any) {
           console.error({ "Refresh Token Error:": e.message });
           return res.send(e.message);

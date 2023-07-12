@@ -132,9 +132,17 @@ const session_Handler = {
 
   Get_Session: async (req: Request, res: Response) => {
     try {
-      return res.send(
-        await session_Service.Get_Session(req.cookies.access_Token)
-      );
+      const cookie_Access_Token = req.cookies.access_Token; //get access token
+      const cookie_Refresh_Token = req.cookies.refresh_Token; //get refresh token
+
+      if (cookie_Access_Token && cookie_Refresh_Token) {
+        const get_Session = await session_Service.Get_Session(
+          req.cookies.access_Token
+        ); //get data from jwt
+        if (get_Session instanceof Error) return res.send("Invalid Jwt"); //if jwt is invalid returns jwt invalid
+        return res.send(get_Session); //if valid session return user data
+      }
+      return res.redirect("/api"); //redirect to get tokens or to login in again
     } catch (e: any) {
       console.error({ "Session-Handler-Get-Session:": e.message });
       res.status(409).send(e.message);

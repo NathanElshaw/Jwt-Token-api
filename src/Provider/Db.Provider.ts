@@ -7,6 +7,7 @@ mongoose.set<"strictQuery">("strictQuery", false);
 export default async function db_Connection() {
   try {
     await mongoose.connect(default_Params.db_Key); // use default params db_key to connect
+    return "Connected to database";
   } catch (e: any) {
     console.log(e.message);
   }

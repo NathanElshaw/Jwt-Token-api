@@ -3,6 +3,7 @@ import jwt_Provider from "../Provider/Jwt.Provider";
 import session_Service from "../Service/Jwt.Service";
 import { default_Params } from "../../Default/Default";
 import { get } from "lodash";
+import { jwt_Payload_Type } from "../../Jwt.Types";
 
 /*Session handler for api requests */
 const session_Handler = {
@@ -29,6 +30,8 @@ const session_Handler = {
         userAgent,
         access_Ip
       );
+      if (!session) return res.send("Service Error");
+      if (session instanceof Error) return res.send("Database Error");
       //jwt access token to use in session
       const access_Token = jwt_Provider.sign(
         {
@@ -62,7 +65,7 @@ const session_Handler = {
     }
   },
 
-  Check_Refresh(req: Request, res: Response, next: NextFunction) {
+  Check_Refresh: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const cookie_Access_Token = req.cookies.access_Token; //checks for exisitng access token
       const cookie_Refresh_Token = req.cookies.refresh_Token; //checks for existing refresh token
@@ -75,6 +78,22 @@ const session_Handler = {
               default_Params.jwt_Private_Key
             ); //validates access token
 
+          if (valid_Access_Token === true) {
+            const access_Token_Payload: jwt_Payload_Type =
+              decoded_Access_Token as any;
+
+            try {
+              const access_Token_Db_Check =
+                await session_Service.Validate_Sessions(
+                  access_Token_Payload.payload.session
+                ); //check db for valid token
+
+              if (access_Token_Db_Check === true) next(); //if passes db check go to next function
+            } catch (e: any) {
+              console.error({ "Check-Refresh-Validate-Db:": e.message });
+            }
+          }
+
           if (!decoded_Access_Token || valid_Access_Token === false) {
             //if access token is invalid check refresh token
             const {
@@ -84,6 +103,7 @@ const session_Handler = {
               cookie_Refresh_Token,
               default_Params.jwt_Private_Key
             ); //validate refresh token
+
             if (!decoded_Refresh_Token || valid_Refresh_Token === false) {
               //if refresh is invalid  delete seesion and request to relog
               jwt_Provider.Delete_Session(res); //clear cookies
@@ -113,7 +133,7 @@ const session_Handler = {
   Get_Session: async (req: Request, res: Response) => {
     try {
       return res.send(
-        await session_Service.Get_Session(req.cookies.access_Cookie)
+        await session_Service.Get_Session(req.cookies.access_Token)
       );
     } catch (e: any) {
       console.error({ "Session-Handler-Get-Session:": e.message });
@@ -126,15 +146,15 @@ const session_Handler = {
       const cookie_Access_Token = req.cookies.access_Token; //checks for exisitng access token
       const cookie_Refresh_Token = req.cookies.refresh_Token; //checks for existing refresh token
       //if there is a jwt in cookies will invalidate the session in the db then clear cookies on client
+
       if (cookie_Access_Token && cookie_Refresh_Token) {
         const jwt_Payload = jwt_Provider.verify(
           cookie_Access_Token,
           default_Params.jwt_Private_Key
         );
-        console.log(jwt_Payload);
+
         await session_Service.Delete_Session(
-          get(jwt_Payload.decoded, "payload"),
-          res
+          get(jwt_Payload.decoded, "payload")
         );
         return res.send(await jwt_Provider.Delete_Session(res));
       } else {

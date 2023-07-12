@@ -19,7 +19,7 @@ app.use(
 app.use(cookieParser(), express.json(), DeserializeUser);
 
 app.listen(port, async () => {
-  await db_Connection();
+  console.log(await db_Connection());
   console.log(`Api Running on Port: ${port}`);
   routes(app);
 });

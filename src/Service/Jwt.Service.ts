@@ -1,6 +1,7 @@
 import { Response } from "express";
 import jwt_Provider from "../Provider/Jwt.Provider";
 import { default_Params } from "../../Default/Default";
+import Session_Model from "../Models/Sessions.model";
 
 const session_Service = {
   /*Creates a Mongodb Document to use to store session */
@@ -9,14 +10,15 @@ const session_Service = {
       const session = {
         user: userId,
         userAgent: userAgent,
-        access_Ip: access_Ip,
-        _id: "123423293432ew",
+        access_Ip: access_Ip || null,
       }; //created a mongodb document with inputs
-      //put create doucment async here for mongodb
-      return session; //return create as a json to be used in jwt
+      const create_Session = await Session_Model.create(session);
+      console.log(create_Session);
+      return { ...session, _id: create_Session._id }; //put create doucment async here for mongodb
+      //return create as a json to be used in jwt
     } catch (e: any) {
       console.error({ "Session Create:": e.message });
-      return e.message;
+      return new Error(e.message);
     }
   },
 
@@ -28,10 +30,24 @@ const session_Service = {
       return e.message;
     }
   },
-
-  Delete_Session: async (session_Id: any, res: Response) => {
+  Validate_Sessions: async (session_Id: string) => {
     try {
-      console.log(session_Id.session);
+      const session: any = await Session_Model.findById(session_Id).lean(); //find session in database
+      if (session.valid === false) throw new Error("Session invalid"); //if session on database is invalid throws an error
+      return true; //returns true if session is valid
+    } catch (e: any) {
+      console.error({ "Session-Service-Verify-Session:": e.message });
+      return e.message;
+    }
+  },
+
+  Delete_Session: async (session_Id: any) => {
+    try {
+      await Session_Model.updateOne(
+        { _id: session_Id.session },
+        { valid: false }
+      ).lean();
+      return "Database delete success";
     } catch (e: any) {
       console.error({ "Session Delete:": e.message });
       return e.message;

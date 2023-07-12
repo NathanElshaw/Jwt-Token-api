@@ -2,6 +2,7 @@ import { Response } from "express";
 import jwt_Provider from "../Provider/Jwt.Provider";
 import { default_Params } from "../../Default/Default";
 import Session_Model from "../Models/Sessions.model";
+import session_Handler from "../Controller/Jwt.Controller";
 
 const session_Service = {
   /*Creates a Mongodb Document to use to store session */
@@ -24,7 +25,12 @@ const session_Service = {
 
   Get_Session: async (access_Cookie: string) => {
     try {
-      return jwt_Provider.verify(access_Cookie, default_Params.jwt_Private_Key);
+      const { decoded, valid } = jwt_Provider.verify(
+        access_Cookie,
+        default_Params.jwt_Private_Key
+      );
+      if (!decoded || valid === false) return new Error("Jwt Invalid");
+      return decoded;
     } catch (e: any) {
       console.error({ "Session-Service-Get-Session:": e.message });
       return e.message;

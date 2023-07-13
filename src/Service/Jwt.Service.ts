@@ -14,7 +14,7 @@ const session_Service = {
         access_Ip: access_Ip || null,
       }; //created a mongodb document with inputs
       const create_Session = await Session_Model.create(session);
-      console.log(create_Session);
+      console.log({ "create db session": create_Session });
       return { ...session, _id: create_Session._id }; //put create doucment async here for mongodb
       //return create as a json to be used in jwt
     } catch (e: any) {
@@ -28,9 +28,9 @@ const session_Service = {
       const { decoded, valid } = jwt_Provider.verify(
         access_Cookie,
         default_Params.jwt_Private_Key
-      );
-      if (!decoded || valid === false) return new Error("Jwt Invalid");
-      return decoded;
+      ); //verify jwt
+      if (!decoded || valid === false) return "Jwt Invalid"; //if jwt is invalid return Jwt invalid
+      return decoded; //if valid return data
     } catch (e: any) {
       console.error({ "Session-Service-Get-Session:": e.message });
       return e.message;

@@ -14,7 +14,9 @@ const session_Handler = {
     const access_Cookie = req.cookies.access_Token;
     const refresh_Token = req.cookies.refresh_Token;
 
-    if (access_Cookie && refresh_Token) return res.send("Tokens already exist");
+    if (access_Cookie && refresh_Token) {
+      return res.send("Tokens already exist");
+    }
 
     //if the check returns null or undefined will reject request here
     if (!user) {
@@ -23,19 +25,21 @@ const session_Handler = {
     //then try to make a session
     try {
       const userAgent = req.headers["user-agent"] as string; //Requesting users device info
-      const access_Ip = req.socket.remoteAddress?.slice(7) as string; //Requesting users ip
+      const access_Ip = req.socket.remoteAddress?.slice(7) as string; //Requesting users ip can be used for ip based 2 auth better way may be use ngix
 
       const session = await session_Service.Create(
         user._id,
         userAgent,
         access_Ip
       );
+
       if (!session) return res.send("Service Error");
+
       if (session instanceof Error) return res.send("Database Error");
       //jwt access token to use in session
       const access_Token = jwt_Provider.sign(
         {
-          ...user, //user document encoded to jwt to use as a reference (set to res.locals.user._doc)
+          ...session, //user document encoded to jwt to use as a reference (set to res.locals.user._doc)
           session: session._id, //session id from mongodb doc
         },
         default_Params.jwt_Private_Key, //keyName
@@ -48,7 +52,7 @@ const session_Handler = {
       /*signs refresh token*/
       const refresh_token = jwt_Provider.sign(
         {
-          ...user, //user document encoded to jwt to use as a reference (set to res.locals.user._doc)
+          ...session, //user document encoded to jwt to use as a reference (set to res.locals.user._doc)
           session: session._id, //session id from mongodb doc
         },
         default_Params.jwt_Private_Key, //keyName
@@ -136,16 +140,14 @@ const session_Handler = {
       const cookie_Refresh_Token = req.cookies.refresh_Token; //get refresh token
 
       if (cookie_Access_Token && cookie_Refresh_Token) {
-        const get_Session = await session_Service.Get_Session(
-          req.cookies.access_Token
-        ); //get data from jwt
-        if (get_Session instanceof Error) return res.send("Invalid Jwt"); //if jwt is invalid returns jwt invalid
-        return res.send(get_Session); //if valid session return user data
+        return res.send(
+          await session_Service.Get_Session(req.cookies.access_Token)
+        ); //if valid session return user data
       }
       return res.redirect("/api"); //redirect to get tokens or to login in again
     } catch (e: any) {
       console.error({ "Session-Handler-Get-Session:": e.message });
-      res.status(409).send(e.message);
+      return res.status(409).send(e.message);
     }
   },
 

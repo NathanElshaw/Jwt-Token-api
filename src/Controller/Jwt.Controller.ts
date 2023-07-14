@@ -3,7 +3,6 @@ import jwt_Provider from "../Provider/Jwt.Provider";
 import session_Service from "../Service/Jwt.Service";
 import { default_Params } from "../../Default/Default";
 import { get } from "lodash";
-import { jwt_Payload_Type } from "../../Jwt.Types";
 
 /*Session handler for api requests */
 const session_Handler = {
@@ -75,62 +74,44 @@ const session_Handler = {
       const cookie_Refresh_Token = req.cookies.refresh_Token; //checks for existing refresh token
 
       if (cookie_Access_Token && cookie_Refresh_Token) {
-        try {
-          const { decoded: decoded_Access_Token, valid: valid_Access_Token } =
-            jwt_Provider.verify(
-              cookie_Access_Token,
-              default_Params.jwt_Private_Key
-            ); //validates access token
-
-          if (valid_Access_Token === true) {
-            const access_Token_Payload: jwt_Payload_Type =
-              decoded_Access_Token as any;
-
-            try {
-              const access_Token_Db_Check =
-                await session_Service.Validate_Sessions(
-                  access_Token_Payload.payload.session
-                ); //check db for valid token
-
-              if (access_Token_Db_Check === true) next(); //if passes db check go to next function
-            } catch (e: any) {
-              console.error({ "Check-Refresh-Validate-Db:": e.message });
-            }
-          }
-
-          if (!decoded_Access_Token || valid_Access_Token === false) {
-            //if access token is invalid check refresh token
-            const {
-              decoded: decoded_Refresh_Token,
-              valid: valid_Refresh_Token,
-            } = jwt_Provider.verify(
-              cookie_Refresh_Token,
-              default_Params.jwt_Private_Key
-            ); //validate refresh token
-
-            if (!decoded_Refresh_Token || valid_Refresh_Token === false) {
-              //if refresh is invalid  delete seesion and request to relog
-              jwt_Provider.Delete_Session(res); //clear cookies
-              return res.send("Please Login Again"); //if both tokens are invalid  will request to relog-in
-            }
-            jwt_Provider.Reissue(
-              cookie_Access_Token,
-              cookie_Refresh_Token,
-              default_Params.jwt_Private_Key,
+        //if both tokens are present continue
+        const { valid: Access_Valid } = jwt_Provider.verify(
+          cookie_Access_Token,
+          default_Params.jwt_Private_Key
+        );
+        if (Access_Valid === true) {
+          next();
+        } else {
+          const { valid: Refresh_Valid } = jwt_Provider.verify(
+            cookie_Refresh_Token,
+            default_Params.jwt_Private_Key
+          );
+          if (Refresh_Valid === true) {
+            const { new_Access_Token, new_Refresh_Token } =
+              jwt_Provider.Reissue(
+                cookie_Refresh_Token,
+                default_Params.jwt_Private_Key
+              );
+            if (new_Access_Token && new_Refresh_Token) {
+              const { decoded } = jwt_Provider.verify(
+                new_Access_Token,
+                default_Params.jwt_Private_Key
+              );
+              if (decoded) res.locals.user = decoded;
+              res.locals.access_Token = { access_Token: new_Access_Token };
               res
-            ); //reissue tokens
-            return res.send("Reissued"); //if access is invalid but refresh is valid will reissue tokens
+                .cookie("access_Token", new_Access_Token, { httpOnly: true }) // Set-cookie for access token
+                .cookie("refresh_Token", new_Refresh_Token, { httpOnly: true }); // Set-cookie for refresh token
+              return { new_Access_Token, new_Refresh_Token };
+            }
+            return "Error Reissuing";
           }
-          next(); //if tokens are good will return next function
-        } catch (e: any) {
-          console.error({ "Refresh Token Error:": e.message });
-          return res.send(e.message);
         }
       } else {
-        return next();
+        return res.send(jwt_Provider.Delete_Session(res));
       }
     } catch (e: any) {
-      return e.message;
+      return res.send(e.message);
     }
   },
 
@@ -138,13 +119,15 @@ const session_Handler = {
     try {
       const cookie_Access_Token = req.cookies.access_Token; //get access token
       const cookie_Refresh_Token = req.cookies.refresh_Token; //get refresh token
-
       if (cookie_Access_Token && cookie_Refresh_Token) {
         return res.send(
-          await session_Service.Get_Session(req.cookies.access_Token)
+          await session_Service.Get_Session(
+            req.cookies.access_Token,
+            res.locals.access_Token
+          )
         ); //if valid session return user data
       }
-      return res.redirect("/api"); //redirect to get tokens or to login in again
+      return "Login again"; //redirect to get tokens or to login in again
     } catch (e: any) {
       console.error({ "Session-Handler-Get-Session:": e.message });
       return res.status(409).send(e.message);

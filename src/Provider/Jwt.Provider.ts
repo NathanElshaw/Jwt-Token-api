@@ -36,74 +36,48 @@ const jwt_Provider = {
   },
 
   Reissue: (
-    access_Token: string, //current access token
     refresh_Token: string, //current refresh token
-    keyName: string, //key name for making signing key
-    res: Response
+    keyName: string //key name for making signing key
   ) => {
     const signing_Key = Buffer.from(keyName, "base64").toString("ascii"); //creates signing key with private or public key
     try {
-      jwt.verify(access_Token, signing_Key); //decodes the current access token to check if its valid
-      return "Good";
+      const refresh_Decoded = jwt.verify(refresh_Token, signing_Key); //on a invaild access token will check refresh token to see if its valid
+      //if valid then will reissue a new refresh and access token
+      if (refresh_Decoded) {
+        try {
+          const new_Access_Token = jwt.sign(
+            { payload: get(refresh_Decoded, "payload") }, //user data
+            signing_Key, //signing key
+            {
+              expiresIn: default_Params.jwt_Access_Token_TTL, //Tokens expire time defined in default params i.e "15m" = 15 minutes
+              algorithm: "RS256", //encoding algo
+            }
+          );
+          const new_Refresh_Token = jwt.sign(
+            { payload: get(refresh_Decoded, "payload") }, //user data
+            signing_Key, //signing key
+            {
+              expiresIn: default_Params.jwt_Refresh_Token_TTL, //Tokens expire time defined in default params i.e "15m" = 15 minutes
+              algorithm: "RS256",
+            }
+          );
+          return { new_Access_Token, new_Refresh_Token };
+        } catch (e: any) {
+          console.error(e.message);
+          return e.message;
+        }
+      }
     } catch (e: any) {
       if (e.message === "jwt expired") {
         try {
-          const refresh_Decoded = jwt.verify(refresh_Token, signing_Key); //on a invaild access token will check refresh token to see if its valid
-          //if valid then will reissue a new refresh and access token
-          if (refresh_Decoded) {
-            try {
-              const new_Access_Token = jwt.sign(
-                { payload: get(refresh_Decoded, "payload") }, //user data
-                signing_Key, //signing key
-                {
-                  expiresIn: default_Params.jwt_Access_Token_TTL, //Tokens expire time defined in default params i.e "15m" = 15 minutes
-                  algorithm: "RS256", //encoding algo
-                }
-              );
-              const new_Refresh_Token = jwt.sign(
-                { payload: get(refresh_Decoded, "payload") }, //user data
-                signing_Key, //signing key
-                {
-                  expiresIn: default_Params.jwt_Refresh_Token_TTL, //Tokens expire time defined in default params i.e "15m" = 15 minutes
-                  algorithm: "RS256",
-                }
-              );
-              res
-                .cookie("access_Token", new_Access_Token, {
-                  httpOnly: true,
-                }) // Set-cookie for new access token
-                .cookie("refresh_Token", new_Refresh_Token, {
-                  httpOnly: true,
-                }); // Set-cookie for new refresh token
-              return "New Token issue";
-            } catch (e: any) {
-              console.error(e.message);
-              return e.message;
-            }
-          }
+          return jwt_Provider.Delete_Session;
         } catch (e: any) {
-          if (e.message === "jwt expired") {
-            try {
-              res
-                .cookie("access_Token", "", {
-                  httpOnly: true,
-                  expires: new Date(0),
-                }) //set-cookies to expire instantly therefore "deleting" them
-                .cookie("refresh_Token", "", {
-                  httpOnly: true,
-                  expires: new Date(0),
-                }); //set-cookies to expire instantly therefore "deleting" them
-              return res.send("Please log-in again");
-            } catch (e: any) {
-              console.error({
-                "Jwt Provider-Refresh-Delete-Expired:": e.message,
-              });
-              return e.message;
-            }
-          }
+          console.error({
+            "Jwt Provider-Refresh-Delete-Expired:": e.message,
+          });
+          return e.message;
         }
       }
-      return e.message;
     }
   },
 
@@ -121,7 +95,7 @@ const jwt_Provider = {
       return "Deleted";
     } catch (e: any) {
       console.error({ "Jwt provider-Delete-Session: ": e.message });
-      return res.status(409).send(e.message);
+      return e.message;
     }
   },
 };

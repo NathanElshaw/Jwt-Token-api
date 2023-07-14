@@ -13,12 +13,7 @@ async function DeserializeUser(
     const refresh_Token = req.cookies.refresh_Token;
 
     if (access_Token && refresh_Token) {
-      const Check_Refresh = await session_Handler.Check_Refresh(req, res, next);
-      const { decoded } = jwt_Provider.verify(
-        req.cookies.access_Token,
-        default_Params.jwt_Private_Key
-      );
-      if (decoded) res.locals.user = decoded;
+      await session_Handler.Check_Refresh(req, res, next);
       next();
     }
     next();

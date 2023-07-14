@@ -13,7 +13,7 @@ const session_Service = {
         access_Ip: access_Ip || null,
       }; //created a mongodb document with inputs
       const create_Session = await Session_Model.create(session);
-      return { ...session, _id: create_Session._id }; //put create doucment async here for mongodb
+      return { ...session, session: create_Session._id }; //put create doucment async here for mongodb
       //return create as a json to be used in jwt
     } catch (e: any) {
       console.error({ "Session Create:": e.message });
@@ -21,26 +21,15 @@ const session_Service = {
     }
   },
 
-  Get_Session: async (access_Cookie: string, fallback_access_Token: any) => {
+  Get_Session: async (access_Cookie: string) => {
     try {
-      if (fallback_access_Token) {
-        const { decoded: fallback_Decoded, valid: fallback_valid } =
-          jwt_Provider.verify(
-            fallback_access_Token.access_Token,
-            default_Params.jwt_Private_Key
-          );
-        console.log(fallback_Decoded);
-        if (fallback_Decoded || fallback_valid === true)
-          return fallback_Decoded;
-      } else {
-        const { decoded, valid } = jwt_Provider.verify(
-          access_Cookie,
-          default_Params.jwt_Private_Key
-        ); //verify jwt
-        if (!decoded || valid === false) return "Jwt Error";
-        //if jwt is invalid return Jwt invalid
-        return decoded; //if valid return data
-      }
+      const { decoded, valid } = jwt_Provider.verify(
+        access_Cookie,
+        default_Params.jwt_Private_Key
+      ); //verify jwt
+      if (!decoded || valid === false) return "Jwt Error";
+      //if jwt is invalid return Jwt invalid
+      return decoded; //if valid return data
     } catch (e: any) {
       console.error({ "Session-Service-Get-Session:": e.message });
       return e.message;

@@ -3,6 +3,7 @@ import jwt_Provider from "../Provider/Jwt.Provider";
 import session_Service from "../Service/Jwt.Service";
 import { default_Params } from "../../Default/Default";
 import { get } from "lodash";
+import { jwt_Payload_Type } from "../../Jwt.Types";
 
 /*Session handler for api requests */
 const session_Handler = {
@@ -39,7 +40,6 @@ const session_Handler = {
       const access_Token = jwt_Provider.sign(
         {
           ...session, //user document encoded to jwt to use as a reference (set to res.locals.user._doc)
-          session: session._id, //session id from mongodb doc
         },
         default_Params.jwt_Private_Key, //keyName
         {
@@ -52,7 +52,6 @@ const session_Handler = {
       const refresh_token = jwt_Provider.sign(
         {
           ...session, //user document encoded to jwt to use as a reference (set to res.locals.user._doc)
-          session: session._id, //session id from mongodb doc
         },
         default_Params.jwt_Private_Key, //keyName
         {
@@ -75,12 +74,23 @@ const session_Handler = {
 
       if (cookie_Access_Token && cookie_Refresh_Token) {
         //if both tokens are present continue
-        const { valid: Access_Valid } = jwt_Provider.verify(
-          cookie_Access_Token,
-          default_Params.jwt_Private_Key
-        );
-        if (Access_Valid === true) {
-          next();
+        const { decoded: access_Decoded, valid: access_Valid } =
+          jwt_Provider.verify(
+            cookie_Access_Token,
+            default_Params.jwt_Private_Key
+          );
+        if (access_Valid === true) {
+          let data: jwt_Payload_Type = access_Decoded as any;
+          const db_Check = await session_Service.Validate_Sessions(
+            data.payload.session
+          );
+          if (db_Check === true) {
+            next(); //if tokens are good and db check is valid then got to next function
+            return;
+          } else {
+            await session_Handler.Delete_Session(req, res);
+            return "Session invalid";
+          }
         } else {
           const { valid: Refresh_Valid } = jwt_Provider.verify(
             cookie_Refresh_Token,
@@ -93,18 +103,34 @@ const session_Handler = {
                 default_Params.jwt_Private_Key
               );
             if (new_Access_Token && new_Refresh_Token) {
+              //if new tokens were successful will
               const { decoded } = jwt_Provider.verify(
                 new_Access_Token,
                 default_Params.jwt_Private_Key
               );
-              if (decoded) res.locals.user = decoded;
-              res.locals.access_Token = { access_Token: new_Access_Token };
-              res
-                .cookie("access_Token", new_Access_Token, { httpOnly: true }) // Set-cookie for access token
-                .cookie("refresh_Token", new_Refresh_Token, { httpOnly: true }); // Set-cookie for refresh token
-              return { new_Access_Token, new_Refresh_Token };
+              const data: jwt_Payload_Type = decoded as any;
+              const db_Check = await session_Service.Validate_Sessions(
+                data.payload.session
+              );
+              if (db_Check === true) {
+                if (decoded) res.locals.user = decoded;
+                res.locals.access_Token = new_Access_Token;
+                res.locals.refresh_Token = new_Refresh_Token;
+                res
+                  .cookie("access_Token", new_Access_Token, { httpOnly: true })
+                  .cookie("refresh_Token", new_Refresh_Token, {
+                    httpOnly: true,
+                  }); // add new tokens to cookies
+                next();
+                return;
+              } else {
+                jwt_Provider.Delete_Session(res);
+                return res.send("Session Invalid");
+              }
             }
-            return "Error Reissuing";
+          } else {
+            jwt_Provider.Delete_Session(res);
+            return res.send("Please Login Again");
           }
         }
       } else {
@@ -117,17 +143,22 @@ const session_Handler = {
 
   Get_Session: async (req: Request, res: Response) => {
     try {
-      const cookie_Access_Token = req.cookies.access_Token; //get access token
-      const cookie_Refresh_Token = req.cookies.refresh_Token; //get refresh token
-      if (cookie_Access_Token && cookie_Refresh_Token) {
+      const fallback_Access_Token = res.locals.access_Token; //if a new access token is issued it will be used
+      const fallback_Refresh_Token = res.locals.refresh_Token; //if a new refresh token is issued it will be used
+      if (fallback_Access_Token && fallback_Refresh_Token) {
         return res.send(
-          await session_Service.Get_Session(
-            req.cookies.access_Token,
-            res.locals.access_Token
-          )
-        ); //if valid session return user data
+          await session_Service.Get_Session(fallback_Access_Token)
+        ); //if valid return user data
+      } else {
+        const cookie_Access_Token = req.cookies.access_Token; //get access token
+        const cookie_Refresh_Token = req.cookies.refresh_Token; //get refresh token
+        if (cookie_Access_Token && cookie_Refresh_Token) {
+          return res.send(
+            await session_Service.Get_Session(req.cookies.access_Token)
+          ); //if valid session return user data
+        }
+        return res.send("Login again"); //redirect to get tokens or to login in again
       }
-      return "Login again"; //redirect to get tokens or to login in again
     } catch (e: any) {
       console.error({ "Session-Handler-Get-Session:": e.message });
       return res.status(409).send(e.message);

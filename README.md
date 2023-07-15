@@ -26,7 +26,7 @@
 
 1. Run npm start to start the web server in files terminal
 
-   &nbsp;&nbsp;&nbsp;&nbsp;Routes: Domain(http://Localhost:(your port number in default file))
+   &nbsp;&nbsp;&nbsp;&nbsp;Routes: Domain(http://Localhost: (your port number in default file))
 
    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/api: Create new jwt token if none exist
 

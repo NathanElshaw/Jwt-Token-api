@@ -12,7 +12,7 @@
 
 3. Run npm start to start the web server
 
--&nbsp;&nbsp;&nbsp;&nbsp;####Routes: Domain(http://Localhost:(your port number in default file))
+-&nbsp;&nbsp;&nbsp;&nbsp;Routes: Domain(http://Localhost:(your port number in default file))
 -&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/api: Create new jwt token if none exist
 -&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/api/get: Will display Jwt information
 -&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/api/delete: Will delete token
